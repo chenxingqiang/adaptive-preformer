@@ -1,0 +1,51 @@
+# 多任务学习配置
+model:
+  input_dim: 64
+  d_model: 256
+  nhead: 8
+  num_layers: 6
+  
+tasks:
+  # 质量评估任务
+  quality_assessment:
+    enabled: true
+    loss_weight: 1.0
+    metrics: ["mse", "mae"]
+    
+  # 异常检测任务
+  anomaly_detection:
+    enabled: true
+    loss_weight: 0.5
+    metrics: ["auroc", "f1"]
+    
+  # 特征提取任务
+  feature_extraction:
+    enabled: true
+    loss_weight: 0.3
+    contrastive_loss: true
+    
+  # 分类任务
+  classification:
+    enabled: true
+    loss_weight: 0.8
+    num_classes: 5
+    metrics: ["accuracy", "f1"]
+
+training:
+  # 任务调度
+  task_scheduling:
+    strategy: "dynamic_weighting"
+    uncertainty_weighting: true
+    gradient_balancing: true
+    
+  # 损失平衡
+  loss_balancing:
+    method: "uncertainty"
+    temperature: 1.0
+    min_weight: 0.1
+    
+optimization:
+  optimizer: "adam"
+  learning_rate: 0.001
+  task_specific_lr: true
+  gradient_clipping: 1.0 

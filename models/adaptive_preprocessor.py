@@ -1,34 +1,49 @@
-class LearnablePreprocessor(nn.Module):
-    def __init__(self, n_filters=32, n_segments=8):
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class AdaptivePreprocessor(nn.Module):
+    """Learnable preprocessing pipeline"""
+    def __init__(self, input_dim):
         super().__init__()
-        # 可学习的滤波器参数
-        self.filter_params = nn.Parameter(torch.randn(n_filters))
-        self.filter_banks = nn.ModuleList([
-            nn.Conv1d(1, 1, kernel_size=3, padding=1)
-            for _ in range(n_filters)
+        
+        # Quality assessment
+        self.quality_assessor = QualityAssessor(input_dim)
+        
+        # Learnable filter bank
+        self.filter_bank = nn.ModuleList([
+            LearnableFilter(input_dim) 
+            for _ in range(4)  # Multiple filter types
         ])
         
-        # 可学习的降噪阈值
-        self.denoise_threshold = nn.Parameter(torch.ones(1))
+        # Adaptive feature extraction
+        self.feature_extractor = AdaptiveFeatureExtractor(input_dim)
         
-        # 可学习的分段边界
-        self.segment_boundaries = nn.Parameter(torch.randn(n_segments))
+        # Preprocessing strategy
+        self.strategy_net = nn.Sequential(
+            nn.Linear(input_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, len(self.filter_bank))
+        )
         
-    def apply_adaptive_filtering(self, x):
-        outputs = []
-        for i, filter_bank in enumerate(self.filter_banks):
-            weight = torch.sigmoid(self.filter_params[i])
-            filtered = filter_bank(x)
-            outputs.append(filtered * weight)
-        return torch.sum(torch.stack(outputs), dim=0)
-    
-    def apply_denoising(self, x):
-        threshold = torch.sigmoid(self.denoise_threshold)
-        mask = (torch.abs(x) > threshold).float()
-        return x * mask
-    
-    def forward(self, x, quality_scores):
-        # 根据质量分数自适应调整处理策略
-        x = self.apply_adaptive_filtering(x)
-        x = self.apply_denoising(x)
-        return x
+    def forward(self, x):
+        # Assess signal quality
+        quality_scores = self.quality_assessor(x)
+        
+        # Determine preprocessing strategy
+        strategy_weights = F.softmax(self.strategy_net(x.mean(1)), dim=-1)
+        
+        # Apply filters adaptively
+        filtered = torch.stack([
+            f(x) * w for f, w in zip(self.filter_bank, strategy_weights.T)
+        ]).sum(0)
+        
+        # Extract features
+        features = self.feature_extractor(filtered, quality_scores)
+        
+        return {
+            'processed': filtered,
+            'features': features,
+            'quality_scores': quality_scores,
+            'strategy_weights': strategy_weights
+        }

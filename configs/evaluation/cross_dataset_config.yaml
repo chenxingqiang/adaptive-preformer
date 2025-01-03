@@ -1,0 +1,51 @@
+# 跨数据集评估配置
+model:
+  input_dim: 64
+  d_model: 256
+  nhead: 8
+  num_layers: 6
+
+datasets:
+  # EEG数据集
+  eeg:
+    - name: "TUAB"
+      path: "data/TUAB"
+      type: "eeg"
+      sampling_rate: 250
+      
+    - name: "TUEV"
+      path: "data/TUEV"
+      type: "eeg"
+      sampling_rate: 250
+      
+  # ECG数据集
+  ecg:
+    - name: "MIT-BIH"
+      path: "data/MIT-BIH"
+      type: "ecg"
+      sampling_rate: 360
+      
+    - name: "PTB-XL"
+      path: "data/PTB-XL"
+      type: "ecg"
+      sampling_rate: 500
+      
+  # 语音数据集
+  speech:
+    - name: "LibriSpeech"
+      path: "data/LibriSpeech"
+      type: "speech"
+      sampling_rate: 16000
+
+evaluation:
+  metrics:
+    - "accuracy"
+    - "f1_score"
+    - "auc_roc"
+    - "precision"
+    - "recall"
+    
+  analysis:
+    domain_shift: true
+    feature_distribution: true
+    quality_comparison: true 

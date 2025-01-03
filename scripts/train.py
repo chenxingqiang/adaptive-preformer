@@ -1,89 +1,155 @@
 import torch
+import torch.nn as nn
+import torch.optim as optim
 from torch.utils.data import DataLoader, random_split
 from pathlib import Path
-from dataset import EEGDataset
-from model import AdaptivePreFormer
-from trainer import Trainer, TrainingConfig, Evaluator
+from utils.dataset import EEGDataset
+from models.transformer import AdaptivePreFormer
+
+def train_epoch(model, train_loader, criterion, optimizer, device):
+    model.train()
+    total_loss = 0
+    correct = 0
+    total = 0
+    
+    for batch_idx, (data, targets) in enumerate(train_loader):
+        # Move data to device and ensure correct types
+        data = data.float().to(device)  # Ensure float type for input data
+        targets = targets.long().to(device)  # Ensure long type for targets
+        
+        # Forward pass
+        outputs = model(data)
+        loss = criterion(outputs['logits'], targets)
+        
+        # Backward pass and optimize
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+        # Track metrics
+        total_loss += loss.item()
+        pred = outputs['logits'].argmax(dim=1)
+        correct += pred.eq(targets).sum().item()
+        total += targets.size(0)
+        
+    return total_loss / len(train_loader), correct / total
+
+def validate(model, val_loader, criterion, device):
+    model.eval()
+    total_loss = 0
+    correct = 0
+    total = 0
+    
+    with torch.no_grad():
+        for data, targets in val_loader:
+            # Move data to device and ensure correct types
+            data = data.float().to(device)
+            targets = targets.long().to(device)
+            
+            # Forward pass
+            outputs = model(data)
+            loss = criterion(outputs['logits'], targets)
+            
+            # Track metrics
+            total_loss += loss.item()
+            pred = outputs['logits'].argmax(dim=1)
+            correct += pred.eq(targets).sum().item()
+            total += targets.size(0)
+            
+    return total_loss / len(val_loader), correct / total
 
 def main():
-    # 配置
-    config = TrainingConfig()
-    config.batch_size = 32
-    config.num_epochs = 100
-    config.learning_rate = 1e-4
+    # Configuration
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    # 数据集路径
-    data_dir = Path("data/PhysioNetP300")
+    # Load datasets
+    datasets = []
+    data_root = Path("data")
     
-    # 加载数据集
-    full_dataset = EEGDataset(data_dir, sequence_length=512)
+    # Load required datasets
+    required_datasets = ["EEGBCI"]
+    for ds_name in required_datasets:
+        if (data_root / ds_name).exists():
+            datasets.append(EEGDataset(data_root / ds_name, required=True))
     
-    # 划分训练集和验证集
-    train_size = int(0.8 * len(full_dataset))
-    val_size = len(full_dataset) - train_size
+    if not datasets:
+        raise RuntimeError("No datasets could be loaded!")
+    
+    # Get dataset properties
+    dataset = datasets[0]  # Use first dataset
+    input_dim = dataset.data.shape[1]
+    sequence_length = dataset.data.shape[2]
+    num_classes = len(torch.unique(dataset.labels))
+    
+    print(f"\nDataset properties:")
+    print(f"Input dimensions: {input_dim}")
+    print(f"Sequence length: {sequence_length}")
+    print(f"Number of classes: {num_classes}")
+    
+    # Split dataset into train and validation sets
+    train_size = int(0.8 * len(dataset))
+    val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(
-        full_dataset, 
-        [train_size, val_size]
+        dataset, 
+        [train_size, val_size],
+        generator=torch.Generator().manual_seed(42)
     )
     
-    # 创建数据加载器
+    print(f"\nSplit sizes:")
+    print(f"Training samples: {len(train_dataset)}")
+    print(f"Validation samples: {len(val_dataset)}")
+    
+    # Create data loaders
     train_loader = DataLoader(
         train_dataset,
-        batch_size=config.batch_size,
+        batch_size=32,
         shuffle=True,
-        num_workers=4
+        num_workers=4,
+        pin_memory=True
     )
     
     val_loader = DataLoader(
         val_dataset,
-        batch_size=config.batch_size,
+        batch_size=32,
         shuffle=False,
-        num_workers=4
+        num_workers=4,
+        pin_memory=True
     )
     
-    # 模型初始化
+    # Initialize model
     model = AdaptivePreFormer(
-        input_dim=64,  # EEG通道数
+        input_dim=input_dim,
         d_model=256,
         nhead=8,
-        num_layers=6
-    )
+        num_layers=6,
+        dropout=0.1,
+        num_classes=num_classes,
+        max_seq_length=sequence_length
+    ).to(device)
     
-    # 训练器和评估器
-    trainer = Trainer(model, config)
-    evaluator = Evaluator(model, config.device)
+    # Loss and optimizer
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.01)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
     
-    # 训练循环
-    best_acc = 0
-    for epoch in range(config.num_epochs):
-        # 训练
-        train_loss, train_acc = trainer.train_epoch(train_loader, epoch)
+    # Training loop
+    best_val_acc = 0
+    for epoch in range(100):
+        # Train
+        train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
         
-        # 评估
-        eval_results = evaluator.evaluate(val_loader)
+        # Validate
+        val_loss, val_acc = validate(model, val_loader, criterion, device)
         
-        # 保存最佳模型
-        if eval_results['accuracy'] > best_acc:
-            best_acc = eval_results['accuracy']
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': trainer.optimizer.state_dict(),
-                'accuracy': best_acc,
-            }, 'best_model.pth')
-            
-        # 记录结果
-        print(f'Epoch {epoch}:')
+        # Update learning rate
+        scheduler.step()
+        
+        # Print metrics
+        print(f'Epoch: {epoch+1}')
         print(f'Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}')
-        print(f'Val Loss: {eval_results["loss"]:.4f}, Val Acc: {eval_results["accuracy"]:.4f}')
-        print('Quality Analysis:', eval_results['quality_analysis'])
-        print('Parameter Analysis:', eval_results['param_analysis'])
-
-if __name__ == '__main__':
-    # 下载并准备数据
-    from prepare_data import EEGDataDownloader
-    downloader = EEGDataDownloader()
-    data_dir = downloader.download_physionet_p300()
-    
-    # 开始训练
-    main()
+        print(f'Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}')
+        
+        # Save best model
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            torch.save(model.state_dict(), 'best_model.pt')

@@ -1,0 +1,45 @@
+# 实时处理配置
+model:
+  input_dim: 64
+  d_model: 256
+  nhead: 8
+  num_layers: 6
+  max_seq_length: 10000
+
+realtime:
+  # 流处理参数
+  streaming:
+    buffer_size: 1000
+    overlap: 100
+    update_frequency: 10
+    
+  # 延迟要求
+  latency:
+    max_processing_time_ms: 20
+    max_memory_mb: 1024
+    
+  # 计算优化
+  optimization:
+    quantization: true
+    pruning_ratio: 0.3
+    mixed_precision: true
+    use_tensorrt: true
+    
+  # 质量控制
+  quality:
+    min_quality_threshold: 0.6
+    adaptive_sampling: true
+    dynamic_buffer: true
+
+monitoring:
+  # 性能监控
+  performance:
+    track_latency: true
+    track_memory: true
+    track_quality: true
+    
+  # 告警设置
+  alerts:
+    max_latency_ms: 30
+    min_quality: 0.5
+    max_memory_mb: 2048 

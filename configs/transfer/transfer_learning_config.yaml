@@ -1,0 +1,45 @@
+# 迁移学习配置
+model:
+  input_dim: 64
+  d_model: 256
+  nhead: 8
+  num_layers: 6
+  pretrained: true
+  
+transfer:
+  # 源域配置
+  source:
+    dataset: "TUAB"
+    task: "classification"
+    checkpoint_path: "checkpoints/pretrained_model.pt"
+    
+  # 目标域配置
+  target:
+    dataset: "TUEV"
+    task: "classification"
+    data_ratio: 0.1  # 少量标注数据
+    
+  # 适应策略
+  adaptation:
+    method: "gradual_unfreezing"  # 逐层解冻
+    layers_to_finetune: ["quality_assessor", "last_two_layers"]
+    learning_rate_multiplier: 0.1
+    
+  # 领域适应
+  domain_adaptation:
+    use_mmd_loss: true  # 最大平均差异损失
+    lambda_mmd: 0.1
+    kernel_multiplier: 2.0
+    
+training:
+  batch_size: 32
+  num_epochs: 50
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  
+evaluation:
+  metrics:
+    - "source_performance"
+    - "target_performance"
+    - "domain_distance"
+    - "feature_alignment" 

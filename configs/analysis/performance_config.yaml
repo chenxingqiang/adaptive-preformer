@@ -1,0 +1,45 @@
+# 性能分析配置
+model:
+  input_dim: 64
+  d_model: 256
+  nhead: 8
+  num_layers: 6
+  dropout: 0.1
+  max_seq_length: 10000
+
+performance_analysis:
+  # 计算性能分析
+  compute:
+    profile_flops: true
+    measure_throughput: true
+    memory_tracking: true
+    batch_size_sweep: [8, 16, 32, 64, 128]
+    
+  # 延迟分析
+  latency:
+    measure_inference_time: true
+    real_time_threshold_ms: 20
+    warmup_iterations: 100
+    test_iterations: 1000
+    
+  # 内存分析
+  memory:
+    track_peak_memory: true
+    memory_profiling: true
+    activation_memory: true
+    
+  # 硬件利用率
+  hardware:
+    gpu_utilization: true
+    cpu_utilization: true
+    memory_bandwidth: true
+
+optimization:
+  quantization: true
+  pruning_ratio: 0.3
+  mixed_precision: true
+  
+logging:
+  log_frequency: 100
+  save_profiles: true
+  export_traces: true 

@@ -1,0 +1,45 @@
+# 可解释性分析配置
+model:
+  input_dim: 64
+  d_model: 256
+  nhead: 8
+  num_layers: 6
+  
+analysis:
+  # 注意力分析
+  attention:
+    visualize_patterns: true
+    track_temporal_focus: true
+    compute_importance: true
+    
+  # 特征归因
+  attribution:
+    methods: ["integrated_gradients", "grad_cam", "shap"]
+    baseline_type: "zero"
+    steps: 50
+    
+  # 决策分析
+  decision:
+    extract_rules: true
+    decision_path: true
+    counterfactual: true
+    
+  # 质量解释
+  quality_explanation:
+    local_interpretation: true
+    global_patterns: true
+    failure_analysis: true
+    
+visualization:
+  # 可视化设置
+  plots:
+    attention_heatmaps: true
+    feature_importance: true
+    decision_boundaries: true
+    quality_distribution: true
+    
+  # 交互式分析
+  interactive:
+    enable_dashboard: true
+    real_time_monitoring: true
+    custom_analysis: true 

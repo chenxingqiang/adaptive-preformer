@@ -1,0 +1,38 @@
+# 移除多尺度特征的配置
+model:
+  input_dim: 64
+  d_model: 256
+  nhead: 8
+  num_layers: 6
+  dropout: 0.1
+  max_seq_length: 10000
+  feature_extraction:
+    use_multiscale: false  # 禁用多尺度特征
+    single_scale_only: true
+
+training:
+  batch_size: 32
+  num_epochs: 100
+  learning_rate: 0.001
+  weight_decay: 0.01
+  warmup_steps: 1000
+  gradient_clip: 1.0
+  patience: 10
+
+preprocessing:
+  filter_range: [0.1, 50.0]
+  denoise_threshold: 0.1
+  segment_size: 1000
+  overlap_ratio: 0.5
+
+quality:
+  local_window_size: 100
+  global_pool_size: 10
+  quality_threshold: 0.7
+  attention_hidden_dim: 32
+
+optimization:
+  quantization: true
+  pruning_ratio: 0.3
+  distillation: false
+  mixed_precision: true 

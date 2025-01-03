@@ -1,0 +1,47 @@
+# 自适应训练配置
+model:
+  input_dim: 64
+  d_model: 256
+  nhead: 8
+  num_layers: 6
+  
+adaptive_training:
+  # 动态批量大小
+  batch_size:
+    initial: 32
+    min_size: 8
+    max_size: 128
+    adaptation_factor: 1.2
+    
+  # 学习率调整
+  learning_rate:
+    initial: 0.001
+    min_lr: 0.00001
+    max_lr: 0.01
+    adaptation_strategy: "cyclic"
+    
+  # 模型结构适应
+  architecture:
+    dynamic_depth: true
+    min_layers: 4
+    max_layers: 8
+    growth_rate: 0.1
+    
+  # 质量感知训练
+  quality_aware:
+    sample_weighting: true
+    difficulty_curriculum: true
+    quality_threshold: 0.6
+    
+monitoring:
+  # 适应性指标
+  metrics:
+    track_convergence: true
+    track_gradient_norm: true
+    track_loss_landscape: true
+    
+  # 早停策略
+  early_stopping:
+    patience: 10
+    min_delta: 0.001
+    restore_best: true 

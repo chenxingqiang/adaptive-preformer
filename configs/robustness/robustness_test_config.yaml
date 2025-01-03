@@ -1,0 +1,35 @@
+# 鲁棒性测试配置
+model:
+  input_dim: 64
+  d_model: 256
+  nhead: 8
+  num_layers: 6
+
+robustness_tests:
+  # 噪声测试
+  noise:
+    types: ["gaussian", "salt_pepper", "pink"]
+    snr_levels: [-10, -5, 0, 5, 10, 15, 20]
+    
+  # 缺失数据测试
+  missing_data:
+    ratios: [0.1, 0.2, 0.3, 0.4, 0.5]
+    patterns: ["random", "burst", "structured"]
+    
+  # 采样率变化测试
+  sampling_rate:
+    factors: [0.5, 0.75, 1.0, 1.25, 1.5]
+    interpolation: ["linear", "cubic"]
+    
+  # 设备差异测试
+  device_variation:
+    gain_range: [0.5, 2.0]
+    offset_range: [-0.5, 0.5]
+    phase_shift: [-30, 30]
+
+evaluation:
+  metrics:
+    - "accuracy_under_noise"
+    - "quality_score_stability"
+    - "feature_robustness"
+    - "adaptation_speed" 
